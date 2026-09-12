@@ -25,15 +25,23 @@ import {
   FolderSync,
   Layers,
   Sparkles,
-  FileSpreadsheet
+  FileSpreadsheet,
+  X
 } from 'lucide-react';
 
 interface SidebarProps {
   userRole?: string;
   userName?: string;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export default function AdminSidebar({ userRole = 'SUPER_ADMIN', userName = 'ผู้ดูแลระบบ' }: SidebarProps) {
+export default function AdminSidebar({
+  userRole = 'SUPER_ADMIN',
+  userName = 'ผู้ดูแลระบบ',
+  isOpen = false,
+  onClose,
+}: SidebarProps) {
   const pathname = usePathname();
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
@@ -167,25 +175,52 @@ export default function AdminSidebar({ userRole = 'SUPER_ADMIN', userName = 'ผ
   ];
 
   return (
-    <aside className="w-72 bg-slate-950 text-slate-300 flex flex-col h-screen sticky top-0 border-r border-slate-800 select-none z-40">
-      {/* Brand Header */}
-      <div className="h-20 px-6 border-b border-slate-800/80 flex items-center justify-between">
-        <Link href="/admin/dashboard" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-pink-500 p-0.5 shadow-md flex-shrink-0">
-            <div className="w-full h-full bg-slate-900 rounded-[10px] flex items-center justify-center font-extrabold text-pink-400 text-sm">
-              ด.ด.
+    <>
+      {/* Backdrop for Mobile */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-40 lg:hidden transition-opacity"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={`w-72 bg-slate-950 text-slate-300 flex flex-col h-screen fixed lg:sticky top-0 z-50 border-r border-slate-800 select-none transition-transform duration-300 ease-in-out ${
+          isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
+        {/* Brand Header */}
+        <div className="h-20 px-6 border-b border-slate-800/80 flex items-center justify-between">
+          <Link
+            href="/admin/dashboard"
+            onClick={onClose}
+            className="flex items-center gap-3"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-pink-500 p-0.5 shadow-md flex-shrink-0">
+              <div className="w-full h-full bg-slate-900 rounded-[10px] flex items-center justify-center font-extrabold text-pink-400 text-sm">
+                ด.ด.
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="font-bold text-white text-base tracking-tight leading-tight">
-              DDN Portal
+            <div>
+              <div className="font-bold text-white text-base tracking-tight leading-tight">
+                DDN Portal
+              </div>
+              <div className="text-[11px] font-medium text-pink-400 uppercase tracking-wider">
+                {userRole}
+              </div>
             </div>
-            <div className="text-[11px] font-medium text-pink-400 uppercase tracking-wider">
-              {userRole}
-            </div>
-          </div>
-        </Link>
-      </div>
+          </Link>
+
+          {/* Close button for Mobile */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 lg:hidden cursor-pointer"
+            aria-label="Close Sidebar"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
       {/* Navigation Links with Scrollbar */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
@@ -232,6 +267,7 @@ export default function AdminSidebar({ userRole = 'SUPER_ADMIN', userName = 'ผ
                             <Link
                               key={sub.name}
                               href={sub.href}
+                              onClick={onClose}
                               className={`block px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                                 isSubActive
                                   ? 'text-pink-400 bg-pink-950/40 font-semibold'
@@ -252,6 +288,7 @@ export default function AdminSidebar({ userRole = 'SUPER_ADMIN', userName = 'ผ
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={onClose}
                   className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isItemActive
                       ? 'text-white bg-gradient-to-r from-blue-700/80 to-pink-600/40 border-l-4 border-pink-500 shadow-xs'
@@ -293,5 +330,6 @@ export default function AdminSidebar({ userRole = 'SUPER_ADMIN', userName = 'ผ
         </Link>
       </div>
     </aside>
+    </>
   );
 }
