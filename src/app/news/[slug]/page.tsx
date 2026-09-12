@@ -5,15 +5,15 @@ import prisma from '@/lib/prisma';
 import PublicNavbar from '@/components/public/Navbar';
 import PublicFooter from '@/components/public/Footer';
 import { formatThaiDate } from '@/lib/age';
+import { getNewsItemBySlug } from '@/lib/newsData';
 import {
   Calendar,
   Eye,
   ArrowLeft,
+  Building,
+  UserCheck,
   Share2,
   FolderSync,
-  Download,
-  Building,
-  UserCheck
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -30,54 +30,38 @@ export default async function NewsDetailPage({
 
   try {
     const [b, n] = await Promise.all([
-      prisma.brandingSetting.findFirst(),
-      prisma.news.findUnique({
-        where: { slug },
-        include: {
-          department: true,
-          author: true,
-          template: true,
-          attachments: true,
-        },
-      }),
+      prisma.brandingSetting.findFirst().catch(() => null),
+      getNewsItemBySlug(slug),
     ]);
     branding = b;
     item = n;
 
-    if (item) {
-      // Increment views count asynchronously safely
-      await prisma.news.update({
-        where: { id: item.id },
-        data: { viewsCount: { increment: 1 } },
-      }).catch(() => {});
+    if (item && item.id && !item.id.startsWith('news-')) {
+      // Increment views count safely for DB-backed items
+      await prisma.news
+        .update({
+          where: { id: item.id },
+          data: { viewsCount: { increment: 1 } },
+        })
+        .catch(() => {});
     }
   } catch (err) {
-    console.warn('Database not reachable in News Detail:', err);
+    console.warn('Error in NewsDetailPage:', err);
+    item = await getNewsItemBySlug(slug);
   }
 
-  // Fallback news item if matching common slug
   if (!item) {
-    if (slug === 'ddn-ai-national-award-2026') {
-      item = {
-        id: 'n1',
-        title: 'ดัดดรุณีคว้ารางวัลชนะเลิศ การแข่งขันโครงงาน AI ระดับชาติ 2026',
-        slug: 'ddn-ai-national-award-2026',
-        summary: 'ทีมนักเรียนโรงเรียนดัดดรุณีสร้างชื่อเสียงระดับประเทศ คว้าถ้วยพระราชทานนวัตกรรมดิจิทัล',
-        content: 'โรงเรียนดัดดรุณีขอแสดงความยินดีกับทีมนักเรียนที่ได้สร้างชื่อเสียงระดับประเทศ โดยคว้ารางวัลชนะเลิศการแข่งขันโครงงานปัญญาประดิษฐ์และหุ่นยนต์อัตโนมัติ ระดับมัธยมศึกษาตอนปลาย ประจำปีการศึกษา 2569 ณ ศูนย์นิทรรศการและการประชุมไบเทค บางนา กรุงเทพมหานคร',
-        category: 'ผลงาน',
-        viewsCount: 1421,
-        publishedAt: new Date('2026-05-10'),
-        department: { name: 'กลุ่มสาระฯ วิทยาศาสตร์และเทคโนโลยี' },
-        author: { name: 'งานประชาสัมพันธ์' },
-        attachments: [],
-      };
-    } else {
-      notFound();
-    }
+    notFound();
   }
+
+  const coverImg =
+    item.coverImageUrl ||
+    'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80';
+  const authorName = item.author?.name || 'งานประชาสัมพันธ์ โรงเรียนดัดดรุณี';
+  const deptName = item.department?.nameTh || 'กลุ่มบริหารงานทั่วไป';
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans">
       <PublicNavbar
         schoolName={branding?.schoolName}
         shortName={branding?.shortName}
@@ -102,40 +86,48 @@ export default async function NewsDetailPage({
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-3 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100">
-                {item.department?.nameTh || 'ฝ่ายประชาสัมพันธ์'}
+                {deptName}
               </span>
               <span className="px-3 py-1 rounded-xl text-xs font-bold bg-pink-50 text-pink-700 border border-pink-100">
                 {item.category || 'ทั่วไป'}
               </span>
-              <span className="text-xs text-slate-400 font-medium">
-                Template: {item.template?.name || 'มาตรฐาน'}
-              </span>
+              {item.template?.name && (
+                <span className="text-xs text-slate-400 font-medium">
+                  {item.template.name}
+                </span>
+              )}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+            <h1
+              className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight"
+              style={{ fontFamily: 'var(--font-heading)' }}
+            >
               {item.title}
             </h1>
 
             <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 border-b border-slate-100 pb-4">
-              <span>เผยแพร่เมื่อ: {formatThaiDate(item.publishedAt || item.createdAt)}</span>
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>เผยแพร่เมื่อ: {formatThaiDate(item.publishedAt || item.createdAt)}</span>
+              </span>
               <span>•</span>
               <span className="flex items-center gap-1">
                 <UserCheck className="w-3.5 h-3.5" />
-                <span>โดย {item.author.name}</span>
+                <span>โดย {authorName}</span>
               </span>
               <span>•</span>
               <span className="flex items-center gap-1">
                 <Eye className="w-3.5 h-3.5" />
-                <span>{item.viewsCount.toLocaleString()} เข้าชม</span>
+                <span>{(item.viewsCount ?? 0).toLocaleString()} เข้าชม</span>
               </span>
             </div>
           </div>
 
           {/* Cover Image */}
-          {item.coverImageUrl && (
+          {coverImg && (
             <div className="rounded-2xl overflow-hidden aspect-video bg-slate-100 shadow-md">
               <img
-                src={item.coverImageUrl}
+                src={coverImg}
                 alt={item.title}
                 className="w-full h-full object-cover"
               />
@@ -149,37 +141,45 @@ export default async function NewsDetailPage({
             </div>
           )}
 
-          {/* Content Body */}
-          <div className="text-base text-slate-700 leading-relaxed space-y-4 whitespace-pre-line font-sans">
+          {/* Body Content */}
+          <div className="prose prose-slate max-w-none text-sm sm:text-base leading-relaxed text-slate-700 whitespace-pre-line space-y-4">
             {item.content}
           </div>
 
-          {/* Attachments & Google Drive Files if any */}
+          {/* Attached Files / Links (if any) */}
           {item.attachments && item.attachments.length > 0 && (
             <div className="pt-6 border-t border-slate-100 space-y-3">
-              <h4 className="text-sm font-bold text-slate-900">เอกสารแนบประกอบข่าว</h4>
+              <h3 className="text-sm font-bold text-slate-800">เอกสารแนบที่เกี่ยวข้อง</h3>
               <div className="space-y-2">
                 {item.attachments.map((att: any) => (
-                  <div
+                  <a
                     key={att.id}
-                    className="p-3 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs"
+                    href={att.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between p-3 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 transition-colors text-xs font-semibold text-slate-700 group"
                   >
-                    <div className="flex items-center gap-2">
-                      <Download className="w-4 h-4 text-blue-600" />
-                      <span className="font-bold text-slate-800">{att.fileName}</span>
-                    </div>
-                    <a
-                      href={att.localUrl || att.driveFileUrl || '#'}
-                      download
-                      className="text-blue-600 font-bold hover:underline"
-                    >
-                      ดาวน์โหลด
-                    </a>
-                  </div>
+                    <span>{att.fileName}</span>
+                    <span className="text-blue-600 group-hover:underline">ดาวน์โหลด</span>
+                  </a>
                 ))}
               </div>
             </div>
           )}
+
+          {/* Social Share / Action Bar */}
+          <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
+            <Link
+              href="/news"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-pink-600 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>ดูข่าวสารอื่นๆ ทั้งหมด</span>
+            </Link>
+            <span className="text-xs text-slate-400">
+              โรงเรียนดัดดรุณี • Smart School 2026
+            </span>
+          </div>
         </article>
       </main>
 

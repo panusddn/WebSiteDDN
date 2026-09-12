@@ -25,6 +25,8 @@ import {
   Trophy,
   MapPin,
 } from 'lucide-react';
+import { DEFAULT_NEWS_ITEMS, NewsItemType } from '@/lib/newsConstants';
+import { formatThaiDate } from '@/lib/age';
 
 /* ============================================================
    Count-Up Hook (for School Statistics)
@@ -185,6 +187,19 @@ export default function HomePage() {
   const eventsRef = useFadeUp();
   const achieveRef = useFadeUp();
   const ctaRef = useFadeUp();
+
+  const [newsList, setNewsList] = useState<NewsItemType[]>(DEFAULT_NEWS_ITEMS);
+
+  useEffect(() => {
+    fetch('/api/news')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setNewsList(data.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F5F7FB] text-[#07182F] antialiased overflow-x-hidden">
@@ -496,66 +511,82 @@ export default function HomePage() {
           </div>
 
           {/* Bento Grid: 1 Main + 3 Side */}
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-6">
-            {/* Main Featured Card (7 cols) */}
-            <div className="sm:col-span-7 bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-xs group card-hover flex flex-col">
-              <div className="relative aspect-video overflow-hidden bg-slate-100">
-                <img
-                  src="https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80"
-                  alt="การแข่งขันหุ่นยนต์"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <span className="absolute top-3 left-3 px-3 py-0.5 rounded-full text-[10px] font-bold bg-[#FF4F9A] text-white">
-                  กิจกรรม
-                </span>
-              </div>
-              <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
-                <div className="space-y-1">
-                  <span className="text-[11px] text-[#53627A] font-medium block">12 ก.ย. 2569</span>
-                  <h3 className="text-base font-bold text-[#07182F] group-hover:text-[#1265F3] transition-colors">
-                    การแข่งขันหุ่นยนต์ ระดับโรงเรียน
-                  </h3>
-                  <p className="text-xs text-[#53627A] line-clamp-2 leading-relaxed">
-                    เปิดพื้นที่ให้นักเรียนได้แสดงทักษะด้าน Robotics, Coding และ Innovation
-                  </p>
-                </div>
-                <Link href="/news" className="text-xs font-bold text-[#FF4F9A] hover:text-[#1265F3] flex items-center gap-1 self-start">
-                  <span>อ่านต่อ</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            </div>
-
-            {/* 3 Stacked Side Cards (5 cols) */}
-            <div className="sm:col-span-5 flex flex-col justify-between gap-3">
-              {[
-                { img: 'https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=300&q=80', badge: 'วิชาการ', badgeColor: 'bg-blue-50 text-[#1265F3]', date: '10 ก.ย. 2569', title: 'อบรมเชิงปฏิบัติการ Coding for Kids' },
-                { img: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=300&q=80', badge: 'ประกาศ', badgeColor: 'bg-pink-50 text-[#FF4F9A]', date: '8 ก.ย. 2569', title: 'ประกาศการรับสมัครนักเรียน ปีการศึกษา 2569' },
-                { img: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=300&q=80', badge: 'การแข่งขัน', badgeColor: 'bg-emerald-50 text-emerald-700', date: '5 ก.ย. 2569', title: 'นักเรียนคว้ารางวัลการแข่งขัน STEM Thailand 2026' },
-              ].map((item, i) => (
-                <Link
-                  key={i}
-                  href="/news"
-                  className="p-3 sm:p-3.5 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3.5 group card-lift active:scale-[0.98]"
-                >
-                  <img
-                    src={item.img}
-                    alt={item.title}
-                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.badgeColor}`}>{item.badge}</span>
-                      <span className="text-[10px] text-[#53627A]">{item.date}</span>
+          {newsList.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-6">
+              {/* Main Featured Card (7 cols) */}
+              {newsList[0] && (
+                <div className="sm:col-span-7 bg-white rounded-3xl border border-slate-200/90 overflow-hidden shadow-xs group card-hover flex flex-col">
+                  <Link href={`/news/${newsList[0].slug}`} className="block relative aspect-video overflow-hidden bg-slate-100">
+                    <img
+                      src={newsList[0].coverImageUrl || 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=800&q=80'}
+                      alt={newsList[0].title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-3 left-3 flex items-center gap-1.5 flex-wrap">
+                      <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-[#FF4F9A] text-white shadow-xs">
+                        {newsList[0].category || 'ข่าวสาร'}
+                      </span>
+                      {newsList[0].department?.nameTh && (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[#07182F]/80 text-white backdrop-blur-xs">
+                          {newsList[0].department.nameTh}
+                        </span>
+                      )}
                     </div>
-                    <h4 className="text-xs sm:text-sm font-bold text-[#07182F] group-hover:text-[#1265F3] transition-colors line-clamp-2 leading-snug">
-                      {item.title}
-                    </h4>
+                  </Link>
+                  <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-3">
+                    <div className="space-y-2">
+                      <span className="text-[11px] text-[#53627A] font-medium block">
+                        {formatThaiDate(newsList[0].publishedAt || newsList[0].createdAt)}
+                      </span>
+                      <h3 className="text-base sm:text-lg font-bold text-[#07182F] group-hover:text-[#1265F3] transition-colors leading-snug">
+                        <Link href={`/news/${newsList[0].slug}`}>{newsList[0].title}</Link>
+                      </h3>
+                      <p className="text-xs text-[#53627A] line-clamp-2 leading-relaxed font-normal">
+                        {newsList[0].summary}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/news/${newsList[0].slug}`}
+                      className="text-xs font-bold text-[#FF4F9A] hover:text-[#1265F3] flex items-center gap-1 self-start transition-colors pt-2"
+                    >
+                      <span>อ่านต่อ</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
-                </Link>
-              ))}
+                </div>
+              )}
+
+              {/* 3 Stacked Side Cards (5 cols) */}
+              <div className="sm:col-span-5 flex flex-col justify-between gap-3">
+                {newsList.slice(1, 4).map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/news/${item.slug}`}
+                    className="p-3 sm:p-3.5 bg-white rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3.5 group card-lift active:scale-[0.98] transition-all"
+                  >
+                    <img
+                      src={item.coverImageUrl || 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=300&q=80'}
+                      alt={item.title}
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#1265F3]">
+                          {item.category || 'ทั่วไป'}
+                        </span>
+                        <span className="text-[10px] text-[#53627A]">
+                          {formatThaiDate(item.publishedAt || item.createdAt)}
+                        </span>
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-bold text-[#07182F] group-hover:text-[#1265F3] transition-colors line-clamp-2 leading-snug">
+                        {item.title}
+                      </h4>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </section>
 
         {/* ================================================================
