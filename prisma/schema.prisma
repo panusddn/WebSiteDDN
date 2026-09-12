@@ -1,0 +1,510 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// 1. Authentication & RBAC
+// -------------------------------------------------------------
+
+model User {
+  id                    String                   @id @default(cuid())
+  email                 String                   @unique
+  passwordHash          String
+  name                  String
+  role                  String                   @default("TEACHER_STAFF") // SUPER_ADMIN, EXECUTIVE, DEPT_ADMIN, TEACHER_STAFF, CONTENT_EDITOR, VIEWER
+  avatar                String?
+  isActive              Boolean                  @default(true)
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  staff                 Staff?
+  departmentAssignments DepartmentAssignment[]
+  createdThemes         WebsiteTheme[]
+  newsAuthored          News[]
+  newsApprovals         NewsApproval[]
+  driveConnections      GoogleDriveConnection[]
+  notificationsReceived NotificationRecipient[]
+  auditLogs             AuditLog[]
+}
+
+// -------------------------------------------------------------
+// 2. Website Theme, Templates, Design Tokens & Branding
+// -------------------------------------------------------------
+
+model WebsiteTheme {
+  id             String                @id @default(cuid())
+  name           String
+  slug           String                @unique
+  description    String?
+  isDefault      Boolean               @default(false)
+  isActive       Boolean               @default(false)
+  isDraft        Boolean               @default(false)
+  version        Int                   @default(1)
+  // JSON strings containing tokens
+  colors         String                // Primary, secondary, accent, surface, gradients etc.
+  typography     String                // Heading font, body font, scale, weights
+  layout         String                // Container width, radius, shadow, header/footer style
+  createdBy      String?
+  creator        User?                 @relation(fields: [createdBy], references: [id])
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  versions       WebsiteThemeVersion[]
+}
+
+model WebsiteThemeVersion {
+  id             String       @id @default(cuid())
+  themeId        String
+  theme          WebsiteTheme @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  version        Int
+  data           String       // Complete snapshot of colors, typography, layout
+  changeLog      String?
+  createdBy      String?
+  createdAt      DateTime     @default(now())
+}
+
+model WebsiteTemplate {
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  description    String?
+  thumbnail      String?
+  previewData    String?  // Layout preset configuration
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+}
+
+model BrandingSetting {
+  id                 String   @id @default("branding-primary")
+  schoolName         String   @default("โรงเรียนดัดดรุณี")
+  schoolNameEn       String   @default("Datdaruni School")
+  shortName          String   @default("ด.ด.")
+  websiteTitle       String   @default("โรงเรียนดัดดรุณี | Datdaruni School - สู่ความเป็นเลิศทางวิชาการและดิจิทัล")
+  tagline            String   @default("มุ่งมั่นพัฒนาศักยภาพผู้เรียน สู่ความเป็นเลิศและก้าวทันยุคดิจิทัล")
+  logoUrl            String?
+  logoAltUrl         String?
+  logoDarkUrl        String?
+  faviconUrl         String?
+  socialShareImageUrl String?
+  footerText         String?  @default("© 2026 โรงเรียนดัดดรุณี (Datdaruni School). All rights reserved.")
+  contactAddress     String?  @default("เลขที่ 1 ถนนมหาจักรพรรดิ์ ตำบลหน้าเมือง อำเภอเมืองฉะเชิงเทรา จังหวัดฉะเชิงเทรา 24000")
+  contactPhone       String?  @default("038-511-011")
+  contactEmail       String?  @default("info@datdaruni.ac.th")
+  mapEmbedUrl        String?
+  updatedAt          DateTime @updatedAt
+}
+
+model HomepageSection {
+  id          String   @id @default(cuid())
+  key         String   @unique // hero, news, events, social, staff, documents, quicklinks, birthdays, contact
+  title       String
+  subtitle    String?
+  isEnabled   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  layoutType  String   @default("grid") // grid, carousel, list, banner
+  maxItems    Int      @default(6)
+  config      String?  // custom section options JSON
+  updatedAt   DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// 3. Departments & Interactive Organization Chart
+// -------------------------------------------------------------
+
+model Department {
+  id              String                 @id @default(cuid())
+  code            String                 @unique
+  nameTh          String
+  nameEn          String?
+  groupName       String?                // เช่น ฝ่ายบริหารงานวิชาการ, ฝ่ายบริหารทั่วไป, กลุ่มสาระการเรียนรู้
+  description     String?
+  icon            String?
+  parentId        String?
+  parent          Department?            @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children        Department[]           @relation("DepartmentHierarchy")
+  headStaffId     String?
+  sortOrder       Int                    @default(0)
+  isActive        Boolean                @default(true)
+  isPublic        Boolean                @default(true)
+  color           String?                @default("#1E40AF")
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  members         DepartmentMember[]
+  staffList       Staff[]
+  assignments     DepartmentAssignment[]
+  newsList        News[]
+  documents       Document[]
+  events          Event[]
+}
+
+model DepartmentMember {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  staffId      String
+  staff        Staff      @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  roleTitle    String?    @default("ครูผู้สอน")
+  isPrimary    Boolean    @default(true)
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+}
+
+model DepartmentAssignment {
+  id           String     @id @default(cuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         String     @default("DEPT_ADMIN") // DEPT_HEAD, DEPT_ADMIN, DEPT_EDITOR
+  permissions  String     // JSON array of permission strings
+  validFrom    DateTime   @default(now())
+  validUntil   DateTime?
+  isActive     Boolean    @default(true)
+  createdBy    String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+// -------------------------------------------------------------
+// 4. Staff Management, Excel Importer & Self-Service Profile
+// -------------------------------------------------------------
+
+model Staff {
+  id              String            @id @default(cuid())
+  userId          String?           @unique
+  user            User?             @relation(fields: [userId], references: [id])
+  employeeId      String?           @unique
+  prefix          String?           @default("ครู") // นาย, นาง, นางสาว, ว่าที่ ร.ต.
+  firstName       String
+  lastName        String
+  nickname        String?
+  gender          String?           // ชาย, หญิง, อื่นๆ
+  position        String?           @default("ครูผู้สอน")
+  academicRank    String?           // ชำนาญการ, ชำนาญการพิเศษ, เชี่ยวชาญ
+  departmentId    String?
+  department      Department?       @relation(fields: [departmentId], references: [id])
+  dateOfBirth     DateTime?         // Age is calculated dynamically from this field!
+  phone           String?
+  email           String?
+  avatarUrl       String?
+  bio             String?
+  isExecutive     Boolean           @default(false)
+  hideAgePublic   Boolean           @default(false) // Privacy control
+  hideBirthday    Boolean           @default(false) // Privacy control
+  sortOrder       Int               @default(0)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  deptMemberships DepartmentMember[]
+  changeRequests  StaffProfileChangeRequest[]
+  birthdayWishes  BirthdayWish[]
+}
+
+model StaffImport {
+  id          String           @id @default(cuid())
+  fileName    String
+  totalRows   Int              @default(0)
+  successRows Int              @default(0)
+  failedRows  Int              @default(0)
+  status      String           @default("COMPLETED") // PENDING, PROCESSING, COMPLETED, FAILED
+  createdBy   String?
+  createdAt   DateTime         @default(now())
+
+  rows        StaffImportRow[]
+}
+
+model StaffImportRow {
+  id             String      @id @default(cuid())
+  importId       String
+  importRef      StaffImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  rowNumber      Int
+  firstName      String
+  lastName       String
+  departmentName String
+  status         String      @default("SUCCESS") // SUCCESS, ERROR, SKIPPED_DUPLICATE
+  errorMessage   String?
+}
+
+model StaffProfileChangeRequest {
+  id            String    @id @default(cuid())
+  staffId       String
+  staff         Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  requestedData String    // JSON of fields to update
+  status        String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewComment String?
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+// -------------------------------------------------------------
+// 5. News & Announcements CMS, Template Gallery & Drive
+// -------------------------------------------------------------
+
+model NewsTemplate {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  description  String?
+  layoutType   String   @default("STANDARD") // HERO_SPLIT, FORMAL_DOCUMENT, PHOTO_GALLERY, EVENT_HIGHLIGHT, MINIMAL
+  previewImage String?
+  config       String?  // JSON configuration of header styles, badge position, etc.
+  isDefault    Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  newsList     News[]
+}
+
+model News {
+  id            String           @id @default(cuid())
+  departmentId  String?
+  department    Department?      @relation(fields: [departmentId], references: [id])
+  authorId      String
+  author        User             @relation(fields: [authorId], references: [id])
+  templateId    String?
+  template      NewsTemplate?    @relation(fields: [templateId], references: [id])
+  title         String
+  slug          String           @unique
+  summary       String?
+  content       String
+  coverImageUrl String?
+  contentType   String           @default("NEWS") // NEWS, ANNOUNCEMENT, PRESS_RELEASE, ACTIVITY
+  category      String?          @default("ทั่วไป")
+  isFeatured    Boolean          @default(false)
+  isPinned      Boolean          @default(false)
+  status        String           @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, PUBLISHED, ARCHIVED
+  visibility    String           @default("PUBLIC") // PUBLIC, INTERNAL
+  viewsCount    Int              @default(0)
+  publishedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  attachments   NewsAttachment[]
+  approvals     NewsApproval[]
+}
+
+model NewsAttachment {
+  id           String   @id @default(cuid())
+  newsId       String
+  news         News     @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  source       String   @default("LOCAL") // LOCAL, GOOGLE_DRIVE
+  driveFileId  String?
+  driveFileUrl String?
+  fileName     String
+  fileSize     Int?     @default(0)
+  mimeType     String?
+  storageMode  String   @default("IMPORT_COPY") // LINKED, IMPORT_COPY
+  localUrl     String?
+  createdAt    DateTime @default(now())
+}
+
+model NewsApproval {
+  id         String   @id @default(cuid())
+  newsId     String
+  news       News     @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  reviewerId String
+  reviewer   User     @relation(fields: [reviewerId], references: [id])
+  action     String   // SUBMIT, APPROVE, REJECT, REQUEST_CHANGES
+  comment    String?
+  createdAt  DateTime @default(now())
+}
+
+model GoogleDriveConnection {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  googleEmail  String?
+  accessToken  String?
+  refreshToken String?
+  tokenExpiry  DateTime?
+  scopes       String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// -------------------------------------------------------------
+// 6. Documents, Schedules & Calendar Events
+// -------------------------------------------------------------
+
+model DocumentCategory {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  icon        String?
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+
+  documents   Document[]
+}
+
+model Document {
+  id            String            @id @default(cuid())
+  categoryId    String
+  category      DocumentCategory  @relation(fields: [categoryId], references: [id])
+  departmentId  String?
+  department    Department?       @relation(fields: [departmentId], references: [id])
+  title         String
+  fileNumber    String?
+  fileUrl       String
+  fileSize      Int               @default(0)
+  fileType      String            @default("PDF")
+  downloadCount Int               @default(0)
+  isPublic      Boolean           @default(true)
+  publishedAt   DateTime          @default(now())
+  createdAt     DateTime          @default(now())
+}
+
+model Schedule {
+  id           String   @id @default(cuid())
+  academicYear String   // เช่น 2569
+  term         String   // เช่น 1, 2
+  gradeLevel   String   // เช่น ม.1, ม.4
+  room         String   // เช่น 1/1, 4/3
+  title        String
+  fileUrl      String?
+  details      String?  // JSON timetable data
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+model Event {
+  id            String      @id @default(cuid())
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  title         String
+  description   String?
+  location      String?
+  startDate     DateTime
+  endDate       DateTime?
+  allDay        Boolean     @default(true)
+  category      String?     @default("กิจกรรมโรงเรียน")
+  coverImageUrl String?
+  isPublic      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+// -------------------------------------------------------------
+// 7. Birthday Wishes System & Notifications
+// -------------------------------------------------------------
+
+model BirthdaySetting {
+  id                 String   @id @default("birthday-config")
+  isEnabled          Boolean  @default(true)
+  defaultWishMessage String   @default("ขออาราธนาคุณพระศรีรัตนตรัยและสิ่งศักดิ์สิทธิ์ โปรดดลบันดาลประทานพรให้ท่านและครอบครัวมีความสุข สุขภาพแข็งแรง ประสบความสำเร็จในหน้าที่การงานตลอดไป")
+  autoSendTime       String   @default("08:00")
+  allowStaffOptOut   Boolean  @default(true)
+  showAgePublicly    Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
+}
+
+model BirthdayWishTemplate {
+  id             String         @id @default(cuid())
+  name           String
+  category       String         @default("FESTIVE") // FESTIVE, ACADEMIC, ELEGANT, WARM
+  greetingText   String
+  signatureText  String?        @default("คณะผู้บริหาร ครู และบุคลากร โรงเรียนดัดดรุณี")
+  cardTheme      String         // JSON: background gradient, accent color, sparkles
+  imageUrl       String?
+  isDefault      Boolean        @default(false)
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+
+  wishes         BirthdayWish[]
+}
+
+model BirthdayWish {
+  id         String                @id @default(cuid())
+  staffId    String
+  staff      Staff                 @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  templateId String?
+  template   BirthdayWishTemplate? @relation(fields: [templateId], references: [id])
+  message    String
+  senderName String                @default("ผู้บริหารและคณะครูโรงเรียนดัดดรุณี")
+  sentDate   DateTime              @default(now())
+  status     String                @default("SENT") // PENDING, SENT
+  createdAt  DateTime              @default(now())
+}
+
+model Notification {
+  id         String                  @id @default(cuid())
+  title      String
+  message    String
+  type       String                  @default("INFO") // INFO, WARNING, SUCCESS, URGENT, BIRTHDAY
+  linkUrl    String?
+  createdAt  DateTime                @default(now())
+
+  recipients NotificationRecipient[]
+}
+
+model NotificationRecipient {
+  id             String       @id @default(cuid())
+  notificationId String
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isRead         Boolean      @default(false)
+  readAt         DateTime?
+}
+
+// -------------------------------------------------------------
+// 8. Social Media Integration & Audit Logs
+// -------------------------------------------------------------
+
+model SocialConnection {
+  id          String       @id @default(cuid())
+  platform    String       // FACEBOOK, INSTAGRAM, YOUTUBE
+  accountName String
+  pageId      String?
+  accessToken String?
+  isConnected Boolean      @default(false)
+  lastSyncAt  DateTime?
+  syncStatus  String?      @default("IDLE") // SUCCESS, ERROR, SYNCING, IDLE
+  syncError   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  posts       SocialPost[]
+}
+
+model SocialPost {
+  id              String           @id @default(cuid())
+  connectionId    String
+  connection      SocialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  externalId      String           @unique
+  message         String?
+  postUrl         String?
+  mediaUrl        String?
+  mediaType       String?          @default("IMAGE") // IMAGE, VIDEO, ALBUM
+  postedAt        DateTime
+  isVisible       Boolean          @default(true)
+  isHiddenByAdmin Boolean          @default(false)
+  likesCount      Int              @default(0)
+  sharesCount     Int              @default(0)
+  createdAt       DateTime         @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   // LOGIN, CREATE, UPDATE, DELETE, IMPORT, EXPORT, APPROVE, PUBLISH
+  entityType String   // STAFF, THEME, DEPARTMENT, NEWS, DOCUMENT, USER, ROLE
+  entityId   String?
+  details    String?  // JSON string
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+}
