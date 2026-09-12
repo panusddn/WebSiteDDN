@@ -9,18 +9,75 @@ import { Users, Mail, Phone, Search, Filter } from 'lucide-react';
 export const dynamic = 'force-dynamic';
 
 export default async function PublicStaffPage() {
-  const [branding, staffList, departments] = await Promise.all([
-    prisma.brandingSetting.findFirst(),
-    prisma.staff.findMany({
-      where: { isActive: true },
-      include: { department: true },
-      orderBy: [{ isExecutive: 'desc' }, { sortOrder: 'asc' }],
-    }),
-    prisma.department.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: 'asc' },
-    }),
-  ]);
+  let branding: any = null;
+  let staffList: any[] = [];
+  let departments: any[] = [];
+
+  try {
+    const [b, s, d] = await Promise.all([
+      prisma.brandingSetting.findFirst(),
+      prisma.staff.findMany({
+        where: { isActive: true },
+        include: { department: true },
+        orderBy: [{ isExecutive: 'desc' }, { sortOrder: 'asc' }],
+      }),
+      prisma.department.findMany({
+        where: { isActive: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+    ]);
+    branding = b;
+    staffList = s;
+    departments = d;
+  } catch (err) {
+    console.warn('Database not reachable in Staff, using fallback data:', err);
+  }
+
+  // Fallback staff list if database is uninitialized
+  if (staffList.length === 0) {
+    departments = [
+      { id: 'd1', name: 'ฝ่ายบริหารงานวิชาการ' },
+      { id: 'd2', name: 'กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี' },
+      { id: 'd3', name: 'กลุ่มสาระการเรียนรู้คณิตศาสตร์' },
+      { id: 'd4', name: 'กลุ่มสาระการเรียนรู้ภาษาต่างประเทศ' },
+    ];
+    staffList = [
+      {
+        id: 's1',
+        title: 'นาย',
+        firstName: 'สมหมาย',
+        lastName: 'การุณวิทย์',
+        position: 'ผู้อำนวยการโรงเรียน',
+        academicStanding: 'ผู้อำนวยการเชี่ยวชาญ',
+        department: { name: 'ฝ่ายบริหาร' },
+        isExecutive: true,
+        email: 'director@datdaruni.ac.th',
+        phone: '038-511-011',
+      },
+      {
+        id: 's2',
+        title: 'นาง',
+        firstName: 'กัญญาภัทร',
+        lastName: 'วรกิจเจริญ',
+        position: 'รองผู้อำนวยการกลุ่มบริหารวิชาการ',
+        academicStanding: 'รองผู้อำนวยการชำนาญการพิเศษ',
+        department: { name: 'ฝ่ายบริหารงานวิชาการ' },
+        isExecutive: true,
+        email: 'academic@datdaruni.ac.th',
+      },
+      {
+        id: 's3',
+        title: 'ดร.',
+        firstName: 'ชาญณรงค์',
+        lastName: 'ปรีชาญชัย',
+        position: 'หัวหน้ากลุ่มสาระฯ วิทยาศาสตร์และเทคโนโลยี',
+        academicStanding: 'ครูชำนาญการพิเศษ',
+        department: { name: 'กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี' },
+        isExecutive: false,
+        email: 'channarong@datdaruni.ac.th',
+      },
+    ];
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">

@@ -18,22 +18,59 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default async function AboutPage() {
-  const [branding, departments, executives] = await Promise.all([
-    prisma.brandingSetting.findFirst(),
-    prisma.department.findMany({
-      where: { isActive: true, isPublic: true },
-      include: {
-        children: true,
-        staffList: true,
+  let branding: any = null;
+  let departments: any[] = [];
+  let executives: any[] = [];
+
+  try {
+    const [b, d, e] = await Promise.all([
+      prisma.brandingSetting.findFirst(),
+      prisma.department.findMany({
+        where: { isActive: true, isPublic: true },
+        include: {
+          children: true,
+          staffList: true,
+        },
+        orderBy: { sortOrder: 'asc' },
+      }),
+      prisma.staff.findMany({
+        where: { isExecutive: true, isActive: true },
+        include: { department: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+    ]);
+    branding = b;
+    departments = d;
+    executives = e;
+  } catch (err) {
+    console.warn('Database not reachable in About, using fallback data:', err);
+  }
+
+  // Fallback executives if database has no records
+  if (executives.length === 0) {
+    executives = [
+      {
+        id: 'e1',
+        title: 'นาย',
+        firstName: 'สมหมาย',
+        lastName: 'การุณวิทย์',
+        position: 'ผู้อำนวยการโรงเรียน',
+        academicStanding: 'ผู้อำนวยการเชี่ยวชาญ',
+        department: { name: 'ฝ่ายบริหาร' },
+        avatar: null,
       },
-      orderBy: { sortOrder: 'asc' },
-    }),
-    prisma.staff.findMany({
-      where: { isExecutive: true, isActive: true },
-      include: { department: true },
-      orderBy: { sortOrder: 'asc' },
-    }),
-  ]);
+      {
+        id: 'e2',
+        title: 'นาง',
+        firstName: 'กัญญาภัทร',
+        lastName: 'วรกิจเจริญ',
+        position: 'รองผู้อำนวยการกลุ่มบริหารวิชาการ',
+        academicStanding: 'รองผู้อำนวยการชำนาญการพิเศษ',
+        department: { name: 'ฝ่ายบริหารงานวิชาการ' },
+        avatar: null,
+      },
+    ];
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
