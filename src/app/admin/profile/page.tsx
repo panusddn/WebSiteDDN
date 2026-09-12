@@ -61,7 +61,8 @@ export default function StaffProfilePage() {
         setDepartments(dJson.data || []);
 
         if (sJson.data && sJson.data.length > 0) {
-          const s = sJson.data[0]; // Load first staff for demonstration/self-service
+          const targetId = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('id') : null;
+          const s = sJson.data.find((item: any) => item.id === targetId) || sJson.data[0];
           setFormData({
             id: s.id,
             prefix: s.prefix || 'ครู',

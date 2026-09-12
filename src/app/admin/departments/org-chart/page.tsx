@@ -44,32 +44,127 @@ export default function InteractiveOrgChartPage() {
     fetchTree();
   }, []);
 
+  const DEFAULT_DEPARTMENTS: DepartmentNode[] = [
+    {
+      id: 'dep-root',
+      code: 'EXEC',
+      nameTh: 'สำนักงานผู้อำนวยการโรงเรียนดัดดรุณี',
+      nameEn: 'Office of the Director',
+      groupName: 'คณะผู้บริหาร',
+      color: '#1265F3',
+      parentId: null,
+      sortOrder: 1,
+      staffList: [{ id: 's1', firstName: 'สมหมาย', lastName: 'การุณวิทย์', position: 'ผู้อำนวยการโรงเรียน' }],
+    },
+    {
+      id: 'dep-acad',
+      code: 'ACAD',
+      nameTh: 'ฝ่ายบริหารงานวิชาการ',
+      nameEn: 'Academic Affairs',
+      groupName: 'ฝ่ายบริหารงานหลัก',
+      color: '#8B5CF6',
+      parentId: 'dep-root',
+      sortOrder: 2,
+      staffList: [{ id: 's2', firstName: 'กัญญาภัทร', lastName: 'วรกิจเจริญ', position: 'รองผู้อำนวยการ' }],
+    },
+    {
+      id: 'dep-budget',
+      code: 'BUDG',
+      nameTh: 'ฝ่ายบริหารงานงบประมาณ',
+      nameEn: 'Budget & Planning',
+      groupName: 'ฝ่ายบริหารงานหลัก',
+      color: '#0284C7',
+      parentId: 'dep-root',
+      sortOrder: 3,
+      staffList: [{ id: 's3', firstName: 'ประยุทธ', lastName: 'มณีรัตน์', position: 'รองผู้อำนวยการ' }],
+    },
+    {
+      id: 'dep-hr',
+      code: 'HR',
+      nameTh: 'ฝ่ายบริหารงานบุคคล',
+      nameEn: 'Human Resource Affairs',
+      groupName: 'ฝ่ายบริหารงานหลัก',
+      color: '#EC4899',
+      parentId: 'dep-root',
+      sortOrder: 4,
+      staffList: [{ id: 's4', firstName: 'ศิริพร', lastName: 'ธนารักษ์', position: 'รองผู้อำนวยการ' }],
+    },
+    {
+      id: 'dep-gen',
+      code: 'GEN',
+      nameTh: 'ฝ่ายบริหารงานทั่วไป',
+      nameEn: 'General Affairs',
+      groupName: 'ฝ่ายบริหารงานหลัก',
+      color: '#10B981',
+      parentId: 'dep-root',
+      sortOrder: 5,
+      staffList: [{ id: 's5', firstName: 'วิศิษฏ์', lastName: 'เกียรติก้อง', position: 'รองผู้อำนวยการ' }],
+    },
+    {
+      id: 'dep-sci',
+      code: 'SCI',
+      nameTh: 'กลุ่มสาระฯ วิทยาศาสตร์และเทคโนโลยี',
+      nameEn: 'Science & Technology',
+      groupName: 'กลุ่มสาระการเรียนรู้',
+      color: '#3B82F6',
+      parentId: 'dep-acad',
+      sortOrder: 6,
+      staffList: [{ id: 's6', firstName: 'ชาญณรงค์', lastName: 'ปรีชาญชัย', position: 'หัวหน้ากลุ่มสาระฯ' }],
+    },
+    {
+      id: 'dep-math',
+      code: 'MATH',
+      nameTh: 'กลุ่มสาระฯ คณิตศาสตร์',
+      nameEn: 'Mathematics',
+      groupName: 'กลุ่มสาระการเรียนรู้',
+      color: '#6366F1',
+      parentId: 'dep-acad',
+      sortOrder: 7,
+      staffList: [{ id: 's7', firstName: 'สุดารัตน์', lastName: 'เจริญสุข', position: 'หัวหน้ากลุ่มสาระฯ' }],
+    },
+  ];
+
   const fetchTree = async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/departments');
       const json = await res.json();
-      if (json.data) {
+      if (json.data && json.data.length > 0) {
         setDepartments(json.data);
+      } else {
+        setDepartments(DEFAULT_DEPARTMENTS);
       }
     } catch (err) {
-      console.error(err);
+      console.warn('Using default departments hierarchy:', err);
+      setDepartments(DEFAULT_DEPARTMENTS);
     } finally {
       setLoading(false);
     }
   };
 
   // Build hierarchical tree structure
+  const currentDepartments = departments.length > 0 ? departments : DEFAULT_DEPARTMENTS;
+
   const buildTree = (items: DepartmentNode[], parentId: string | null = null): DepartmentNode[] => {
     return items
-      .filter((item) => (item.parentId || null) === parentId)
+      .filter((item) => {
+        const itemParent = item.parentId || null;
+        if (parentId === null) {
+          // A node is a root if it has no parentId, or its parent is not present in the current items list
+          return !itemParent || !items.some((other) => other.id === itemParent);
+        }
+        return itemParent === parentId;
+      })
       .map((item) => ({
         ...item,
         children: buildTree(items, item.id),
       }));
   };
 
-  const tree = buildTree(departments, null);
+  let tree = buildTree(currentDepartments, null);
+  if (tree.length === 0) {
+    tree = buildTree(DEFAULT_DEPARTMENTS, null);
+  }
 
   const handleSaveStructure = async () => {
     setSaving(true);

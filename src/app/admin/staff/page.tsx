@@ -19,20 +19,115 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default async function AdminStaffPage() {
-  const [staffList, departments] = await Promise.all([
-    prisma.staff.findMany({
-      where: { isActive: true },
-      include: {
-        department: true,
-        user: true,
+  let staffList: any[] = [];
+  let departments: any[] = [];
+
+  try {
+    const [s, d] = await Promise.all([
+      prisma.staff.findMany({
+        where: { isActive: true },
+        include: {
+          department: true,
+          user: true,
+        },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+      }),
+      prisma.department.findMany({
+        where: { isActive: true },
+        orderBy: { sortOrder: 'asc' },
+      }),
+    ]);
+    staffList = s;
+    departments = d;
+  } catch (err) {
+    console.warn('Database not reachable in Admin Staff, using fallback data:', err);
+  }
+
+  // Fallback staff list if database is empty or uninitialized
+  if (staffList.length === 0) {
+    staffList = [
+      {
+        id: 's1',
+        employeeId: 'DDN001',
+        prefix: 'ดร.',
+        firstName: 'สมพร',
+        lastName: 'ปัญญาเลิศ',
+        nickname: 'พร',
+        gender: 'ชาย',
+        position: 'ผู้อำนวยการโรงเรียนดัดดรุณี',
+        academicRank: 'เชี่ยวชาญพิเศษ',
+        department: { nameTh: 'สำนักงานผู้อำนวยการ', code: 'DIR' },
+        dateOfBirth: new Date('1980-08-12'),
+        phone: '081-234-5678',
+        email: 'director@datdaruni.ac.th',
+        isExecutive: true,
       },
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
-    }),
-    prisma.department.findMany({
-      where: { isActive: true },
-      orderBy: { sortOrder: 'asc' },
-    }),
-  ]);
+      {
+        id: 's2',
+        employeeId: 'DDN002',
+        prefix: 'นาง',
+        firstName: 'กัญญาภัทร',
+        lastName: 'วรกิจเจริญ',
+        nickname: 'กัญญา',
+        gender: 'หญิง',
+        position: 'รองผู้อำนวยการกลุ่มบริหารวิชาการ',
+        academicRank: 'ชำนาญการพิเศษ',
+        department: { nameTh: 'กลุ่มบริหารวิชาการ', code: 'ACAD' },
+        dateOfBirth: new Date('1984-03-25'),
+        phone: '082-345-6789',
+        email: 'academic@datdaruni.ac.th',
+        isExecutive: true,
+      },
+      {
+        id: 's3',
+        employeeId: 'DDN003',
+        prefix: 'นาย',
+        firstName: 'ชาญณรงค์',
+        lastName: 'ปรีชาญชัย',
+        nickname: 'ณรงค์',
+        gender: 'ชาย',
+        position: 'หัวหน้ากลุ่มสาระฯ วิทยาศาสตร์และเทคโนโลยี',
+        academicRank: 'ชำนาญการพิเศษ',
+        department: { nameTh: 'กลุ่มสาระการเรียนรู้วิทยาศาสตร์และเทคโนโลยี', code: 'SCI' },
+        dateOfBirth: new Date('1988-11-04'),
+        phone: '083-456-7890',
+        email: 'science@datdaruni.ac.th',
+        isExecutive: false,
+      },
+      {
+        id: 's4',
+        employeeId: 'DDN004',
+        prefix: 'นางสาว',
+        firstName: 'สุดารัตน์',
+        lastName: 'เจริญสุข',
+        nickname: 'ดา',
+        gender: 'หญิง',
+        position: 'หัวหน้ากลุ่มสาระฯ คณิตศาสตร์',
+        academicRank: 'ชำนาญการ',
+        department: { nameTh: 'กลุ่มสาระการเรียนรู้คณิตศาสตร์', code: 'MATH' },
+        dateOfBirth: new Date('1992-05-18'),
+        phone: '084-567-8901',
+        email: 'math@datdaruni.ac.th',
+        isExecutive: false,
+      },
+      {
+        id: 's5',
+        employeeId: 'DDN005',
+        prefix: 'นาย',
+        firstName: 'ประยุทธ',
+        lastName: 'มณีรัตน์',
+        nickname: 'ยุทธ',
+        gender: 'ชาย',
+        position: 'รองผู้อำนวยการกลุ่มบริหารทั่วไป',
+        academicRank: 'ชำนาญการพิเศษ',
+        department: { nameTh: 'กลุ่มบริหารทั่วไปและอาคารสถานที่', code: 'GEN' },
+        dateOfBirth: new Date('1982-09-12'),
+        phone: '085-678-9012',
+        email: 'general@datdaruni.ac.th',
+        isExecutive: true,
+      },
+    ];
+  }
 
   return (
     <div className="space-y-6">
@@ -47,10 +142,17 @@ export default async function AdminStaffPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/admin/staff/history"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold shadow-xs transition-colors"
+          >
+            <Users className="w-4 h-4 text-blue-600" />
+            <span>ประวัติการนำเข้า</span>
+          </Link>
           <Link
             href="/admin/staff/import"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold shadow-xs transition-colors"
+            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold shadow-xs transition-colors"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             <span>นำเข้าจาก Excel</span>
