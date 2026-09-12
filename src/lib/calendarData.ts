@@ -4,6 +4,9 @@ import { DEFAULT_SCHOOL_EVENTS, SchoolEventType } from './calendarConstants';
 export type { SchoolEventType };
 export { DEFAULT_SCHOOL_EVENTS };
 
+// In-memory persistent cache for server lifecycle
+let inMemoryEvents: SchoolEventType[] = [...DEFAULT_SCHOOL_EVENTS];
+
 export async function getSchoolEvents(category?: string): Promise<SchoolEventType[]> {
   let events: SchoolEventType[] = [];
 
@@ -27,12 +30,12 @@ export async function getSchoolEvents(category?: string): Promise<SchoolEventTyp
       }
     }
   } catch (err) {
-    console.warn('Cannot fetch events from DB, falling back to default calendar:', err);
+    console.warn('Cannot fetch events from DB, falling back to memory store:', err);
   }
 
-  // Fallback to DEFAULT_SCHOOL_EVENTS
+  // Fallback to in-memory store
   if (events.length === 0) {
-    events = [...DEFAULT_SCHOOL_EVENTS];
+    events = [...inMemoryEvents];
   }
 
   // Filter by category if specified
@@ -52,4 +55,48 @@ export async function getSchoolEvents(category?: string): Promise<SchoolEventTyp
   events.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
   return events;
+}
+
+export async function addSchoolEvent(data: Omit<SchoolEventType, 'id'>): Promise<SchoolEventType> {
+  const newEvent: SchoolEventType = {
+    id: `ev-${Date.now()}`,
+    ...data,
+  };
+
+  try {
+    if ((prisma as any).event && typeof (prisma as any).event.create === 'function') {
+      const created = await (prisma as any).event.create({
+        data: {
+          title: data.title,
+          description: data.description || '',
+          category: data.category,
+          startDate: new Date(data.startDate),
+          endDate: data.endDate ? new Date(data.endDate) : null,
+          location: data.location,
+          isPublic: data.isPublic !== false,
+        },
+      });
+      if (created) {
+        newEvent.id = created.id;
+      }
+    }
+  } catch (err) {
+    console.warn('Cannot save event to DB, keeping in memory store:', err);
+  }
+
+  inMemoryEvents.unshift(newEvent);
+  return newEvent;
+}
+
+export async function deleteSchoolEvent(id: string): Promise<boolean> {
+  try {
+    if ((prisma as any).event && typeof (prisma as any).event.delete === 'function') {
+      await (prisma as any).event.delete({ where: { id } }).catch(() => {});
+    }
+  } catch (err) {
+    console.warn('Cannot delete event from DB:', err);
+  }
+
+  inMemoryEvents = inMemoryEvents.filter((e) => e.id !== id);
+  return true;
 }
