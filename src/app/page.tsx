@@ -26,6 +26,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { DEFAULT_NEWS_ITEMS, NewsItemType } from '@/lib/newsConstants';
+import { DEFAULT_SCHOOL_EVENTS, SchoolEventType } from '@/lib/calendarConstants';
 import { formatThaiDate } from '@/lib/age';
 
 /* ============================================================
@@ -189,6 +190,7 @@ export default function HomePage() {
   const ctaRef = useFadeUp();
 
   const [newsList, setNewsList] = useState<NewsItemType[]>(DEFAULT_NEWS_ITEMS);
+  const [calendarEvents, setCalendarEvents] = useState<SchoolEventType[]>(DEFAULT_SCHOOL_EVENTS);
 
   useEffect(() => {
     fetch('/api/news')
@@ -196,6 +198,15 @@ export default function HomePage() {
       .then((data) => {
         if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
           setNewsList(data.data);
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/calendar?limit=4')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
+          setCalendarEvents(data.data);
         }
       })
       .catch(() => {});
@@ -617,32 +628,38 @@ export default function HomePage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { day: '18', month: 'ก.ย.', title: 'การแข่งขันหุ่นยนต์ระดับโรงเรียน', location: 'หอประชุมราชพฤกษ์' },
-                { day: '25', month: 'ก.ย.', title: 'Coding & AI Challenge', location: 'ห้องปฏิบัติการคอมพิวเตอร์ 1' },
-                { day: '02', month: 'ต.ค.', title: 'นิทรรศการ STEM & Innovation', location: 'ลานอเนกประสงค์' },
-                { day: '15', month: 'พ.ย.', title: 'OPEN HOUSE 2026', location: 'โรงเรียนดัดดรุณี' },
-              ].map((ev, i) => (
-                <Link
-                  key={i}
-                  href="/calendar"
-                  className="flex items-center gap-4 p-4 bg-[#F5F7FB] rounded-2xl border border-slate-200/80 group card-lift active:scale-[0.98]"
-                >
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-[#1265F3] via-[#8B5CF6] to-[#FF4F9A] text-white flex flex-col items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
-                    <span className="text-lg sm:text-xl font-black leading-none">{ev.day}</span>
-                    <span className="text-[9px] sm:text-[10px] font-bold uppercase mt-0.5">{ev.month}</span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-xs sm:text-sm font-bold text-[#07182F] group-hover:text-[#1265F3] transition-colors line-clamp-1">
-                      {ev.title}
-                    </h4>
-                    <span className="text-[10px] sm:text-xs text-[#53627A] flex items-center gap-1 mt-1">
-                      <MapPin className="w-3 h-3 text-[#FF4F9A] shrink-0" />
-                      {ev.location}
-                    </span>
-                  </div>
-                </Link>
-              ))}
+              {calendarEvents.slice(0, 4).map((ev) => {
+                const evDate = new Date(ev.startDate);
+                const day = evDate.getDate().toString().padStart(2, '0');
+                const month = evDate.toLocaleString('th-TH', { month: 'short' });
+
+                return (
+                  <Link
+                    key={ev.id}
+                    href="/calendar"
+                    className="flex items-center gap-4 p-4 bg-[#F5F7FB] rounded-2xl border border-slate-200/80 group card-lift active:scale-[0.98] transition-all"
+                  >
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-[#1265F3] via-[#8B5CF6] to-[#FF4F9A] text-white flex flex-col items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                      <span className="text-lg sm:text-xl font-black leading-none">{day}</span>
+                      <span className="text-[9px] sm:text-[10px] font-bold uppercase mt-0.5">{month}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-[#1265F3]">
+                          {ev.category || 'กิจกรรม'}
+                        </span>
+                      </div>
+                      <h4 className="text-xs sm:text-sm font-bold text-[#07182F] group-hover:text-[#1265F3] transition-colors line-clamp-1 leading-snug">
+                        {ev.title}
+                      </h4>
+                      <span className="text-[10px] sm:text-xs text-[#53627A] flex items-center gap-1 mt-1 line-clamp-1">
+                        <MapPin className="w-3 h-3 text-[#FF4F9A] shrink-0" />
+                        <span>{ev.location}</span>
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </section>
